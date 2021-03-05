@@ -1,27 +1,49 @@
 import { PinoLogger } from 'nestjs-pino';
 import { TronService } from './TronService';
-import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
+import axios, { AxiosError, AxiosResponse } from 'axios';
 
 const NODES_URL: string = 'https://api.shasta.trongrid.io';
+const DATA: any = { data: 'tx data..' };
+const TX_DATA: string = JSON.stringify(DATA);
+const SIGNATURE_ID: string = 'signature id..';
+// Interface is not transparent for post request response, I use any..
+const AXIOS_RESPONSE: AxiosResponse<any> = {
+    data: {
+        result: true,
+        txid: 'txid..',
+        message: 'response message..'
+    }
+} as AxiosResponse<any>;
+
+const AXIOS_ERROR_RESPONSE: AxiosError = {
+    response: {
+        statusText: 'status',
+        status: 500,
+        data: {
+            error_description: 'Some error desc..'
+        }
+    } as AxiosResponse<any>
+} as AxiosError;
+
+const EXPECTED_RESULT: any = {
+    txId: AXIOS_RESPONSE.data.txid
+};
 
 describe('Tron Service', () => {
     let pinoLogger: PinoLogger = {} as PinoLogger;
+
     let mockIsTestnet: jest.Mock<Promise<boolean>, []>;
     let mockGetNodesUrl: jest.Mock<Promise<string[]>, [boolean]>;
     let mockCompleteKMSTransaction: jest.Mock<Promise<void>, [string, string]>;
 
     beforeAll(() => {
-        (TronService.prototype as any).isTestnet = jest.fn().mockImplementation(function (): Promise<boolean> {
-            return Promise.resolve(true);
-        });
-        (TronService.prototype as any).getNodesUrl = jest.fn().mockImplementation((testnet: boolean): Promise<string[]> => {
-            return Promise.resolve([NODES_URL]);
-        });
-        (TronService.prototype as any).completeKMSTransaction = jest.fn().mockImplementation(function (txId: string, signatureId: string): Promise<void> {
-            return Promise.resolve();
-        });
+        axios.post = jest.fn().mockResolvedValue(AXIOS_RESPONSE);
 
         pinoLogger.error = jest.fn().mockReturnValue(null);
+
+        (TronService.prototype as any).isTestnet = jest.fn().mockImplementation((): Promise<boolean> => Promise.resolve(true));
+        (TronService.prototype as any).getNodesUrl = jest.fn().mockImplementation((testnet: boolean): Promise<string[]> => Promise.resolve([NODES_URL]));
+        (TronService.prototype as any).completeKMSTransaction = jest.fn().mockImplementation((txId: string, signatureId: string): Promise<void> => Promise.resolve());
 
         mockIsTestnet = (TronService.prototype as any).isTestnet;
         mockGetNodesUrl = (TronService.prototype as any).getNodesUrl;
@@ -29,39 +51,12 @@ describe('Tron Service', () => {
     });
 
     describe('broadcast method', () => {
-        const DATA: any = { data: 'tx data..' };
-        const TX_DATA: string = JSON.stringify(DATA);
-        const SIGNATURE_ID: string = 'signature id..';
-        // Interface is not transparent for post request response, I use any..
-        const axiosResponse: AxiosResponse<any> = {
-            data: {
-                result: true,
-                txid: 'txid..',
-                message: 'response message..'
-            }
-        } as AxiosResponse<any>;
-
-        const errorResp: AxiosError = {
-            response: {
-                statusText: 'status',
-                status: 500,
-                data: {
-                    error_description: 'Some error desc..'
-                }
-            } as AxiosResponse<any>
-        } as AxiosError;
-
         let result: Promise<any>;
 
         describe('Happy path', () => {
-            const expected: any = {
-                txId: axiosResponse.data.txid
-            };
-
             describe('With signatureId', () => {
                 beforeAll(() => {
                     jest.clearAllMocks();
-                    axios.post = jest.fn().mockResolvedValue(axiosResponse);
 
                     result = TronService.prototype.broadcast(TX_DATA, SIGNATURE_ID);
                 });
@@ -91,7 +86,7 @@ describe('Tron Service', () => {
                     expect(mockCompleteKMSTransaction)
                         .toHaveBeenCalledTimes(1);
                     expect(mockCompleteKMSTransaction)
-                        .toHaveBeenCalledWith(axiosResponse.data.txid, SIGNATURE_ID);
+                        .toHaveBeenCalledWith(AXIOS_RESPONSE.data.txid, SIGNATURE_ID);
 
                     (expect(mockCompleteKMSTransaction) as any)
                         .toHaveBeenCalledAfter(axios.post);
@@ -101,7 +96,7 @@ describe('Tron Service', () => {
                     result
                         .then((value: any) => {
                             expect(value)
-                                .toStrictEqual(expected);
+                                .toStrictEqual(EXPECTED_RESULT);
                         })
                         .catch((): void => fail(`Promise reject has not been expected`));
                 });
@@ -110,7 +105,6 @@ describe('Tron Service', () => {
             describe('Without signatureId', () => {
                 beforeAll(() => {
                     jest.clearAllMocks();
-                    axios.post = jest.fn().mockResolvedValue(axiosResponse);
 
                     result = TronService.prototype.broadcast(TX_DATA);
                 });
@@ -130,7 +124,7 @@ describe('Tron Service', () => {
                     result
                         .then((data: any) => {
                             expect(data)
-                                .toStrictEqual(expected);
+                                .toStrictEqual(EXPECTED_RESULT);
                         })
                         .catch((): void => fail(`Promise reject has not been expected`));
                 });
@@ -138,23 +132,22 @@ describe('Tron Service', () => {
         });
 
         describe('Errpr path', () => {
+            let originalMockBehavior;
             describe(`Test net error`, () => {
                 const ERROR_MESSAGE: string = 'connection error..';
                 const conError: Error = new Error(ERROR_MESSAGE);
-                let originalBehavior;
 
                 beforeAll(() => {
                     jest.clearAllMocks();
 
-                    originalBehavior = (TronService.prototype as any).isTestnet;
+                    originalMockBehavior = (TronService.prototype as any).isTestnet;
                     (TronService.prototype as any).isTestnet = jest.fn().mockRejectedValue(conError);
-                    axios.post = jest.fn().mockResolvedValue(axiosResponse);
 
                     result = TronService.prototype.broadcast(TX_DATA, SIGNATURE_ID);
                 });
 
                 afterAll(() => {
-                    (TronService.prototype as any).isTestnet = originalBehavior;
+                    (TronService.prototype as any).isTestnet = originalMockBehavior;
                 });
 
                 it(`Should make exact calls`, () => {
@@ -182,19 +175,18 @@ describe('Tron Service', () => {
             describe(`Nodes url error`, () => {
                 const ERROR_MESSAGE: string = 'nodes url error..';
                 const urlError: Error = new Error(ERROR_MESSAGE);
-                let originalBehavior;
 
                 beforeAll(() => {
                     jest.clearAllMocks();
-                    originalBehavior = (TronService.prototype as any).getNodesUrl;
+
+                    originalMockBehavior = (TronService.prototype as any).getNodesUrl;
                     (TronService.prototype as any).getNodesUrl = jest.fn().mockRejectedValue(urlError);
-                    axios.post = jest.fn().mockResolvedValue(axiosResponse);
 
                     result = TronService.prototype.broadcast(TX_DATA, SIGNATURE_ID);
                 });
 
                 afterAll(() => {
-                    (TronService.prototype as any).getNodesUrl = originalBehavior;
+                    (TronService.prototype as any).getNodesUrl = originalMockBehavior;
                 });
 
                 it(`Should make exact calls`, () => {
@@ -222,9 +214,15 @@ describe('Tron Service', () => {
             describe('Axios request error', () => {
                 beforeAll(() => {
                     jest.clearAllMocks();
-                    axios.post = jest.fn().mockRejectedValue(errorResp);
+
+                    originalMockBehavior = axios.post;
+                    axios.post = jest.fn().mockRejectedValue(AXIOS_ERROR_RESPONSE);
 
                     result = TronService.prototype.broadcast(TX_DATA, SIGNATURE_ID);
+                });
+
+                afterAll(() => {
+                    axios.post = originalMockBehavior;
                 });
 
                 it(`Should make exact calls`, () => {
@@ -243,7 +241,7 @@ describe('Tron Service', () => {
                         .then((): void => fail(`Promise resolve has not been expected`))
                         .catch((error: AxiosError): void => {
                             expect(error)
-                                .toStrictEqual(errorResp);
+                                .toStrictEqual(AXIOS_ERROR_RESPONSE);
                         });
                 });
             });
@@ -251,14 +249,12 @@ describe('Tron Service', () => {
             describe('KMS transacton error', () => {
                 const ERROR_MESSAGE: string = 'transaction error..';
                 const transactionError: Error = new Error(ERROR_MESSAGE);
-                let originalBehavior;
 
                 beforeAll(() => {
                     jest.clearAllMocks();
 
-                    originalBehavior = (TronService.prototype as any).completeKMSTransaction;
+                    originalMockBehavior = (TronService.prototype as any).completeKMSTransaction;
                     (TronService.prototype as any).completeKMSTransaction = jest.fn().mockRejectedValue(transactionError);
-                    axios.post = jest.fn().mockResolvedValue(axiosResponse);
 
                     let instance = Object.create({
                         isTestnet: mockIsTestnet,
@@ -271,7 +267,7 @@ describe('Tron Service', () => {
                 });
 
                 afterAll(() => {
-                    (TronService.prototype as any).completeKMSTransaction = originalBehavior;
+                    (TronService.prototype as any).completeKMSTransaction = originalMockBehavior;
                 });
 
                 it(`Should make exact calls`, () => {
@@ -290,14 +286,10 @@ describe('Tron Service', () => {
                 });
 
                 it(`Should resolve exact data, if KMS trasaction has been failed`, () => {
-                    const expected: any = {
-                        txId: axiosResponse.data.txid,
-                        failed: true
-                    };
                     result
                         .then((data: any) => {
                             expect(data)
-                                .toStrictEqual(expected);
+                                .toStrictEqual({ ...EXPECTED_RESULT, failed: true });
                         })
                         .catch((): void => fail(`Promise reject has not been expected`));
                 });
@@ -306,9 +298,15 @@ describe('Tron Service', () => {
             describe('broadcast result', () => {
                 beforeAll(() => {
                     jest.clearAllMocks();
-                    axios.post = jest.fn().mockResolvedValue({ ...axiosResponse, data: { ...axiosResponse.data, result: false } });
+
+                    originalMockBehavior = axios.post;
+                    axios.post = jest.fn().mockResolvedValue({ ...AXIOS_RESPONSE, data: { ...AXIOS_RESPONSE.data, result: false } });
 
                     result = TronService.prototype.broadcast(TX_DATA, SIGNATURE_ID);
+                });
+
+                afterAll(() => {
+                    axios.post = originalMockBehavior;
                 });
 
                 it(`Should make exact calls`, () => {
@@ -329,7 +327,7 @@ describe('Tron Service', () => {
                             expect(error)
                                 .toBeInstanceOf(Error);
                             expect(error.message)
-                                .toEqual(`Broadcast failed due to ${axiosResponse.data.message}`);
+                                .toEqual(`Broadcast failed due to ${AXIOS_RESPONSE.data.message}`);
                         });
                 });
             });
