@@ -1,5 +1,5 @@
 import {PinoLogger} from 'nestjs-pino';
-import axios from 'axios';
+import axios, { AxiosResponse } from 'axios';
 import {
     CreateTronTrc10,
     CreateTronTrc20,
@@ -57,24 +57,74 @@ export abstract class TronService {
 
     protected abstract completeKMSTransaction(txId: string, signatureId: string): Promise<void>;
 
-    public async broadcast(txData: string, signatureId?: string) {
-        const url = (await this.getNodesUrl(await this.isTestnet()))[0];
-        const broadcast = (await axios.post(`${url}/wallet/broadcasttransaction`, JSON.parse(txData))).data;
+    public async broadcast (txData: string, signatureId?: string) {
+        /*
+            This block should be in own common module and be tested separately. Then should be reused in other services.
+        */
+        const pickUrlFromNodesUrlList = (urls: string[]): string => urls[0];
+        const sanitizeAxiosResponse = <BC> (response: AxiosResponse<BC>): BC => response.data;
+        // ------------------------------------------------------------------------------------------------------------
+        // I have extracted function just because to document them by name.
+        // Exceptions (side-effect) could be handled by monads (to eliminate)
+
+        const validateBroadcastResult = <BC extends { result: any; message: any; }> (broadcast: BC): BC => {
         if (broadcast.result) {
+                return broadcast;
+            }
+            throw new Error(`Broadcast failed due to ${broadcast.message}`);
+        };
+
+        // Requests (side-effect) could be handled in storage layer and passed to constructor with logger (side-effect)
+        const sendPostRequest = (data: string) =>
+            (url: string): Promise<AxiosResponse<any>> => axios.post(`${url}/wallet/broadcasttransaction`, JSON.parse(data));
+
+        return this.isTestnet()
+            .then(this.getNodesUrl)
+            .then(pickUrlFromNodesUrlList)
+            .then(sendPostRequest(txData))
+            .then(sanitizeAxiosResponse)
+            .then(validateBroadcastResult)
+            .then(async (broadcast: any): Promise<any> => {
             if (signatureId) {
                 try {
                     await this.completeKMSTransaction(broadcast.txid, signatureId);
                 } catch (e) {
                     this.logger.error(e);
-                    return {txId: broadcast.txid, failed: true};
+                        return { txId: broadcast.txid, failed: true };
                 }
             }
-            return {txId: broadcast.txid};
-        }
-        throw new Error(`Broadcast failed due to ${broadcast.message}`);
-    }
+                return { txId: broadcast.txid };
+            });
 
-    public async getBlockChainInfo(testnet?: boolean): Promise<{ testnet: boolean, hash: string, blockNumber: number }> {
+        // .then(async (broadcast: any): Promise<any> =>
+        //     signatureId
+        //         ? this.completeKMSTransaction(broadcast.txid, signatureId)
+        //             .then(() => ({ txId: broadcast.txid }))
+        //             .catch((e: any) => {
+        //                 this.logger.error(e);
+        //                 return { txId: broadcast.txid, failed: true };
+        //             })
+        //         : { txId: broadcast.txid });
+        }
+
+    // public async broadcast(txData: string, signatureId?: string) {
+    //     const url = (await this.getNodesUrl(await this.isTestnet()))[0];
+    //     const broadcast = (await axios.post(`${url}/wallet/broadcasttransaction`, JSON.parse(txData))).data;
+    //     if (broadcast.result) {
+    //         if (signatureId) {
+    //             try {
+    //                 await this.completeKMSTransaction(broadcast.txid, signatureId);
+    //             } catch (e) {
+    //                 this.logger.error(e);
+    //                 return {txId: broadcast.txid, failed: true};
+    //             }
+    //         }
+    //         return {txId: broadcast.txid};
+    //     }
+    //     throw new Error(`Broadcast failed due to ${broadcast.message}`);
+    // }
+
+    public async getBlockChainInfo (testnet?: boolean): Promise<{ testnet: boolean, hash: string, blockNumber: number; }> {
         const t = testnet !== undefined ? testnet : await this.isTestnet();
         const urls = await this.getNodesUrl(t);
         const block = (await axios.post(urls[0] + '/wallet/getnowblock')).data;
