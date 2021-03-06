@@ -62,34 +62,40 @@ describe('Tron Service', () => {
                 });
 
                 it(`Should get nodes url`, () => {
-                    expect(mockIsTestnet)
-                        .toHaveBeenCalledTimes(1);
-                    expect(mockIsTestnet)
-                        .toHaveBeenCalledWith();
-                    expect(mockGetNodesUrl)
-                        .toHaveBeenCalledTimes(1);
-                    expect(mockGetNodesUrl)
-                        .toHaveBeenCalledWith(true);
+                    result.finally(() => {
+                        expect(mockIsTestnet)
+                            .toHaveBeenCalledTimes(1);
+                        expect(mockIsTestnet)
+                            .toHaveBeenCalledWith();
+                        expect(mockGetNodesUrl)
+                            .toHaveBeenCalledTimes(1);
+                        expect(mockGetNodesUrl)
+                            .toHaveBeenCalledWith(true);
+                    });
                 });
 
                 it(`Should call axios post request to exact EP, after nodes url has been obtained`, () => {
-                    expect(axios.post)
-                        .toHaveBeenCalledTimes(1);
-                    expect(axios.post)
-                        .toHaveBeenCalledWith(`${NODES_URL}/wallet/broadcasttransaction`, DATA);
+                    result.finally(() => {
+                        expect(axios.post)
+                            .toHaveBeenCalledTimes(1);
+                        expect(axios.post)
+                            .toHaveBeenCalledWith(`${NODES_URL}/wallet/broadcasttransaction`, DATA);
 
-                    (expect(axios.post) as any)
-                        .toHaveBeenCalledAfter(mockGetNodesUrl);
+                        (expect(axios.post) as any)
+                            .toHaveBeenCalledAfter(mockGetNodesUrl);
+                    });
                 });
 
                 it(`Should complete KMS transaction, after post request has been called successfully`, () => {
-                    expect(mockCompleteKMSTransaction)
-                        .toHaveBeenCalledTimes(1);
-                    expect(mockCompleteKMSTransaction)
-                        .toHaveBeenCalledWith(AXIOS_RESPONSE.data.txid, SIGNATURE_ID);
+                    result.finally(() => {
+                        expect(mockCompleteKMSTransaction)
+                            .toHaveBeenCalledTimes(1);
+                        expect(mockCompleteKMSTransaction)
+                            .toHaveBeenCalledWith(AXIOS_RESPONSE.data.txid, SIGNATURE_ID);
 
-                    (expect(mockCompleteKMSTransaction) as any)
-                        .toHaveBeenCalledAfter(axios.post);
+                        (expect(mockCompleteKMSTransaction) as any)
+                            .toHaveBeenCalledAfter(axios.post);
+                    });
                 });
 
                 it(`Should resolve with exact result (??txID??)`, () => {
@@ -110,14 +116,16 @@ describe('Tron Service', () => {
                 });
 
                 it(`Should make exact calls`, () => {
-                    expect(mockIsTestnet)
-                        .toHaveBeenCalledTimes(1);
-                    expect(mockGetNodesUrl)
-                        .toHaveBeenCalledTimes(1);
-                    expect(axios.post)
-                        .toHaveBeenCalledTimes(1);
-                    expect(mockCompleteKMSTransaction)
-                        .toHaveBeenCalledTimes(0);
+                    result.finally(() => {
+                        expect(mockIsTestnet)
+                            .toHaveBeenCalledTimes(1);
+                        expect(mockGetNodesUrl)
+                            .toHaveBeenCalledTimes(1);
+                        expect(axios.post)
+                            .toHaveBeenCalledTimes(1);
+                        expect(mockCompleteKMSTransaction)
+                            .toHaveBeenCalledTimes(0);
+                    });
                 });
 
                 it(`Should resolve with exact result (??txID??)`, () => {
@@ -151,14 +159,18 @@ describe('Tron Service', () => {
                 });
 
                 it(`Should make exact calls`, () => {
-                    expect(mockIsTestnet)
-                        .toHaveBeenCalledTimes(0);
-                    expect(mockGetNodesUrl)
-                        .toHaveBeenCalledTimes(0);
-                    expect(axios.post)
-                        .toHaveBeenCalledTimes(0);
-                    expect(mockCompleteKMSTransaction)
-                        .toHaveBeenCalledTimes(0);
+                    result
+                        .catch(() => null)
+                        .finally(() => {
+                            expect(mockIsTestnet)
+                                .toHaveBeenCalledTimes(0);
+                            expect(mockGetNodesUrl)
+                                .toHaveBeenCalledTimes(0);
+                            expect(axios.post)
+                                .toHaveBeenCalledTimes(0);
+                            expect(mockCompleteKMSTransaction)
+                                .toHaveBeenCalledTimes(0);
+                        });
                 });
                 it(`Should reject exact error, if net connection has been failed`, () => {
                     result
@@ -190,14 +202,18 @@ describe('Tron Service', () => {
                 });
 
                 it(`Should make exact calls`, () => {
-                    expect(mockIsTestnet)
-                        .toHaveBeenCalledTimes(1);
-                    expect(mockGetNodesUrl)
-                        .toHaveBeenCalledTimes(0);
-                    expect(axios.post)
-                        .toHaveBeenCalledTimes(0);
-                    expect(mockCompleteKMSTransaction)
-                        .toHaveBeenCalledTimes(0);
+                    result
+                        .catch(() => null)
+                        .finally(() => {
+                            expect(mockIsTestnet)
+                                .toHaveBeenCalledTimes(1);
+                            expect(mockGetNodesUrl)
+                                .toHaveBeenCalledTimes(0);
+                            expect(axios.post)
+                                .toHaveBeenCalledTimes(0);
+                            expect(mockCompleteKMSTransaction)
+                                .toHaveBeenCalledTimes(0);
+                        });
                 });
                 it(`Should reject exact error, if net connection has been failed`, () => {
                     result
@@ -226,14 +242,18 @@ describe('Tron Service', () => {
                 });
 
                 it(`Should make exact calls`, () => {
-                    expect(mockIsTestnet)
-                        .toHaveBeenCalledTimes(1);
-                    expect(mockGetNodesUrl)
-                        .toHaveBeenCalledTimes(1);
-                    expect(axios.post)
-                        .toHaveBeenCalledTimes(1);
-                    expect(mockCompleteKMSTransaction)
-                        .toHaveBeenCalledTimes(0);
+                    result
+                        .catch(() => null)
+                        .finally(() => {
+                            expect(mockIsTestnet)
+                                .toHaveBeenCalledTimes(1);
+                            expect(mockGetNodesUrl)
+                                .toHaveBeenCalledTimes(1);
+                            expect(axios.post)
+                                .toHaveBeenCalledTimes(1);
+                            expect(mockCompleteKMSTransaction)
+                                .toHaveBeenCalledTimes(0);
+                        });
                 });
 
                 it(`Should reject exact error, if axios post request has been failed`, () => {
@@ -271,18 +291,22 @@ describe('Tron Service', () => {
                 });
 
                 it(`Should make exact calls`, () => {
-                    expect(mockIsTestnet)
-                        .toHaveBeenCalledTimes(1);
-                    expect(mockGetNodesUrl)
-                        .toHaveBeenCalledTimes(1);
-                    expect(axios.post)
-                        .toHaveBeenCalledTimes(1);
-                    expect((TronService.prototype as any).completeKMSTransaction)
-                        .toHaveBeenCalledTimes(1);
-                    expect(pinoLogger.error)
-                        .toHaveBeenCalledTimes(1);
-                    expect(pinoLogger.error)
-                        .toHaveBeenCalledWith(transactionError);
+                    result
+                        .catch(() => null)
+                        .finally(() => {
+                            expect(mockIsTestnet)
+                                .toHaveBeenCalledTimes(1);
+                            expect(mockGetNodesUrl)
+                                .toHaveBeenCalledTimes(1);
+                            expect(axios.post)
+                                .toHaveBeenCalledTimes(1);
+                            expect((TronService.prototype as any).completeKMSTransaction)
+                                .toHaveBeenCalledTimes(1);
+                            expect(pinoLogger.error)
+                                .toHaveBeenCalledTimes(1);
+                            expect(pinoLogger.error)
+                                .toHaveBeenCalledWith(transactionError);
+                        });
                 });
 
                 it(`Should resolve exact data, if KMS trasaction has been failed`, () => {
@@ -310,14 +334,18 @@ describe('Tron Service', () => {
                 });
 
                 it(`Should make exact calls`, () => {
-                    expect(mockIsTestnet)
-                        .toHaveBeenCalledTimes(1);
-                    expect(mockGetNodesUrl)
-                        .toHaveBeenCalledTimes(1);
-                    expect(axios.post)
-                        .toHaveBeenCalledTimes(1);
-                    expect(mockCompleteKMSTransaction)
-                        .toHaveBeenCalledTimes(0);
+                    result
+                        .catch(() => null)
+                        .finally(() => {
+                            expect(mockIsTestnet)
+                                .toHaveBeenCalledTimes(1);
+                            expect(mockGetNodesUrl)
+                                .toHaveBeenCalledTimes(1);
+                            expect(axios.post)
+                                .toHaveBeenCalledTimes(1);
+                            expect(mockCompleteKMSTransaction)
+                                .toHaveBeenCalledTimes(0);
+                        });
                 });
 
                 it(`Should reject with exact error, if broadcast.result is not 'true'`, () => {
